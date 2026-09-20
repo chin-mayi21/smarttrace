@@ -14,9 +14,9 @@ import ManufacturerPortalScreen from './components/screens/ManufacturerPortalScr
 import EcommerceScreen from './components/screens/EcommerceScreen';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentRole, setCurrentRole] = useState("Enforcement Officer");
-  const [currentScreen, setCurrentScreen] = useState("dashboard");
+  const [currentScreen, setCurrentScreen] = useState("login");
   const [selectedProductId, setSelectedProductId] = useState("PRD-2024-000789");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
