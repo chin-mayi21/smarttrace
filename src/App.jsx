@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { AuthProvider, useAuth, ROLE_SCREEN_MAP, ROLE_LABEL_MAP } from './contexts/AuthContext';
 import Navbar from './components/common/Navbar';
 import Sidebar from './components/common/Sidebar';
-import DemoGuideBar from './components/common/DemoGuideBar';
 
 // Screens
 import LoginScreen from './components/screens/LoginScreen';
@@ -9,30 +9,49 @@ import DashboardScreen from './components/screens/DashboardScreen';
 import AiInspectionScreen from './components/screens/AiInspectionScreen';
 import TraceabilityScreen from './components/screens/TraceabilityScreen';
 import ConsumerPortalScreen from './components/screens/ConsumerPortalScreen';
+import ConsumerDashboardScreen from './components/screens/ConsumerDashboardScreen';
 import ReportsScreen from './components/screens/ReportsScreen';
 import ManufacturerPortalScreen from './components/screens/ManufacturerPortalScreen';
 import EcommerceScreen from './components/screens/EcommerceScreen';
 
-export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentRole, setCurrentRole] = useState("Enforcement Officer");
-  const [currentScreen, setCurrentScreen] = useState("login");
+// ─── Loading Spinner ──────────────────────────────────────────────────────────
+function AuthLoadingScreen() {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl mx-auto mb-4 animate-pulse">
+          <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        <p className="text-emerald-600 font-bold text-sm tracking-wide">SMARTTRACE</p>
+        <p className="text-slate-500 text-xs mt-1 font-medium">Verifying credentials…</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Inner App (has access to auth context) ───────────────────────────────────
+function AppInner() {
+  const { currentUser, userProfile, authLoading, logout } = useAuth();
+  const [currentScreen, setCurrentScreen] = useState(null);
   const [selectedProductId, setSelectedProductId] = useState("PRD-2024-000789");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const handleLogin = (role) => {
-    setCurrentRole(role);
-    setIsAuthenticated(true);
-    if (role === "Consumer") setCurrentScreen("consumer");
-    else if (role === "Manufacturer/Packer") setCurrentScreen("manufacturer");
-    else if (role === "E-commerce platform") setCurrentScreen("ecommerce");
-    else setCurrentScreen("dashboard");
-  };
+  // Show loading while Firebase auth resolves
+  if (authLoading) return <AuthLoadingScreen />;
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentScreen("login");
-  };
+  // Not logged in → show login
+  if (!currentUser || !userProfile) {
+    return <LoginScreen />;
+  }
+
+  // Determine active screen — use profile role default if not set
+  const defaultScreen = ROLE_SCREEN_MAP[userProfile.role] || "dashboard";
+  const activeScreen = currentScreen || defaultScreen;
+
+  // Role label for Navbar/Sidebar
+  const currentRole = ROLE_LABEL_MAP[userProfile.role] || "Enforcement Officer";
 
   const handleNavigate = (screenId) => {
     setCurrentScreen(screenId);
@@ -43,120 +62,92 @@ export default function App() {
     setSelectedProductId(productId);
   };
 
-  const handleRoleChange = (newRole) => {
-    setCurrentRole(newRole);
+  const handleLogout = async () => {
+    await logout();
+    setCurrentScreen(null);
   };
-
-  // If viewing login screen or not authenticated
-  if (!isAuthenticated || currentScreen === "login") {
-    return (
-      <div>
-        <DemoGuideBar 
-          currentScreen="login" 
-          onNavigate={handleNavigate} 
-          currentRole={currentRole} 
-          onRoleChange={handleRoleChange} 
-        />
-        <LoginScreen onLogin={handleLogin} />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900">
-      
-      {/* SIH 2026 Presentation Demo Guide Banner */}
-      <DemoGuideBar 
-        currentScreen={currentScreen} 
-        onNavigate={handleNavigate} 
-        currentRole={currentRole} 
-        onRoleChange={handleRoleChange} 
-      />
-
-      {/* Main App Layout */}
       <div className="flex-1 flex overflow-hidden">
-        
+
         {/* Sidebar */}
         <Sidebar
-          currentScreen={currentScreen}
+          currentScreen={activeScreen}
           onNavigate={handleNavigate}
           currentRole={currentRole}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           onLogout={handleLogout}
+          userProfile={userProfile}
         />
 
         {/* Content Wrapper */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-          
+
           {/* Top Navigation Bar */}
           <Navbar
             currentRole={currentRole}
-            onRoleChange={handleRoleChange}
             onNavigate={handleNavigate}
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-            currentScreen={currentScreen}
+            currentScreen={activeScreen}
+            userProfile={userProfile}
           />
 
           {/* Dynamic Screen View */}
           <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">
-            {currentScreen === "dashboard" && (
-              <DashboardScreen 
-                onNavigate={handleNavigate} 
-                onSelectProduct={handleSelectProduct} 
-              />
-            )}
-
-            {currentScreen === "inspection" && (
-              <AiInspectionScreen 
-                selectedProductId={selectedProductId} 
+            {activeScreen === "dashboard" && (
+              <DashboardScreen
                 onNavigate={handleNavigate}
                 onSelectProduct={handleSelectProduct}
               />
             )}
-
-            {currentScreen === "traceability" && (
-              <TraceabilityScreen 
-                onNavigate={handleNavigate} 
+            {activeScreen === "inspection" && (
+              <AiInspectionScreen
+                selectedProductId={selectedProductId}
+                onNavigate={handleNavigate}
+                onSelectProduct={handleSelectProduct}
               />
             )}
-
-            {currentScreen === "consumer" && (
-              <ConsumerPortalScreen 
-                onNavigate={handleNavigate} 
-              />
+            {activeScreen === "traceability" && (
+              <TraceabilityScreen onNavigate={handleNavigate} />
             )}
-
-            {currentScreen === "reports" && (
-              <ReportsScreen 
-                onNavigate={handleNavigate} 
-              />
+            {activeScreen === "consumer-dashboard" && (
+              <ConsumerDashboardScreen onNavigate={handleNavigate} />
             )}
-
-            {currentScreen === "manufacturer" && (
-              <ManufacturerPortalScreen 
-                onNavigate={handleNavigate} 
-              />
+            {activeScreen === "consumer" && (
+              <ConsumerPortalScreen onNavigate={handleNavigate} initialTab="file" />
             )}
-
-            {currentScreen === "ecommerce" && (
-              <EcommerceScreen 
-                onNavigate={handleNavigate} 
-              />
+            {activeScreen === "grievances" && (
+              <ConsumerPortalScreen onNavigate={handleNavigate} initialTab="grievances" />
             )}
-
-            {/* Default fallback */}
-            {currentScreen === "complaints" && (
-              <ConsumerPortalScreen 
-                onNavigate={handleNavigate} 
-              />
+            {activeScreen === "reports" && (
+              <ReportsScreen onNavigate={handleNavigate} />
+            )}
+            {activeScreen === "manufacturer" && (
+              <ManufacturerPortalScreen onNavigate={handleNavigate} />
+            )}
+            {activeScreen === "ecommerce" && (
+              <EcommerceScreen onNavigate={handleNavigate} />
+            )}
+            {activeScreen === "complaints" && (
+              <ConsumerPortalScreen onNavigate={handleNavigate} initialTab="grievances" />
+            )}
+            {activeScreen === "rights" && (
+              <ConsumerPortalScreen onNavigate={handleNavigate} initialTab="rights" />
             )}
           </main>
-
         </div>
-
       </div>
-
     </div>
+  );
+}
+
+// ─── Root Export — wraps everything in AuthProvider ───────────────────────────
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }

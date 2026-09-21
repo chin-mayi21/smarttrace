@@ -162,7 +162,7 @@ export default function Navbar({
             {showRoleMenu && (
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-3 py-1.5 border-b border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase">Switch Active Demo Role</span>
+                  <span className="text-[11px] font-bold text-slate-400 uppercase">Switch Role</span>
                 </div>
                 {roles.map((r) => (
                   <button

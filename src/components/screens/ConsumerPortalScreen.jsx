@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   UserCheck, 
   Search, 
@@ -14,51 +14,125 @@ import {
   Smartphone,
   Laptop,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  Loader2,
+  Star,
+  History,
+  Inbox,
+  AlertTriangle,
+  PackageCheck
 } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
+import { useAuth } from '../../contexts/AuthContext';
+import { submitComplaint, getComplaintsByUser } from '../../services/complaintsService';
+import { uploadComplaintPhoto } from '../../services/storageService';
 import { mockProducts } from '../../data/mockProducts';
 import { mockComplaintsList, complaintCategories } from '../../data/mockComplaints';
 
-export default function ConsumerPortalScreen({ onNavigate }) {
-  const [activeTab, setActiveTab] = useState("file"); // "file" or "verify"
+export default function ConsumerPortalScreen({ onNavigate, initialTab = "file" }) {
+  const { currentUser, userProfile } = useAuth();
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isMobileFrame, setIsMobileFrame] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [userComplaints, setUserComplaints] = useState([]);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (currentUser?.uid) {
+      getComplaintsByUser(currentUser.uid).then((complaints) => {
+        if (complaints && complaints.length > 0) {
+          setUserComplaints(complaints);
+        }
+      }).catch(err => console.warn("Error fetching user complaints:", err));
+    }
+  }, [currentUser]);
   
-  // Complaint form state
-  const [productName, setProductName] = useState("Fortune Sunlite Refined Sunflower Oil 1L");
-  const [purchaseDate, setPurchaseDate] = useState("2024-05-12");
-  const [placeOfPurchase, setPlaceOfPurchase] = useState("Vishal Mart, Karol Bagh, New Delhi");
+  // Complaint form state — Clean blank start
+  const [productName, setProductName] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState("");
+  const [placeOfPurchase, setPlaceOfPurchase] = useState("");
   const [issueType, setIssueType] = useState("MRP Mismatch (Overcharging / Dual MRP)");
-  const [description, setDescription] = useState("The product MRP on pack is stickered as ₹185.00 whereas standard declared price is ₹165. The cashier refused to give any explanation.");
+  const [description, setDescription] = useState("");
   const [submittedComplaint, setSubmittedComplaint] = useState(null);
 
   // Verification tool state
-  const [verifyBarcode, setVerifyBarcode] = useState("PRD-2024-000789");
-  const [verifiedProduct, setVerifiedProduct] = useState(mockProducts[0]);
+  const [verifyBarcode, setVerifyBarcode] = useState("");
+  const [verifiedProduct, setVerifiedProduct] = useState(null);
+  const [verifying, setVerifying] = useState(false);
+  const [searched, setSearched] = useState(false);
 
-  const handleSubmitComplaint = (e) => {
+  // Review tool state
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+
+  const handleSubmitComplaint = async (e) => {
     e.preventDefault();
-    const newComplaint = {
-      id: `CMP-2024-${Math.floor(1000 + Math.random() * 9000)}`,
-      productName,
-      purchaseDate,
-      placeOfPurchase,
-      issueType,
-      status: "Submitted & Assigned",
-      assignedAuthority: "District Legal Metrology Cell, Central Delhi",
-      officerInCharge: "Rohit Verma (Badge: LM-DEL-8921)",
-      expectedAction: "Field officer dispatched for on-site retail test inspection within 48 hours.",
-      filedOn: new Date().toLocaleDateString()
-    };
-    setSubmittedComplaint(newComplaint);
+    if (!productName || !placeOfPurchase || !description) return;
+    setSubmitting(true);
+    try {
+      const complaintData = {
+        productName,
+        purchaseDate: purchaseDate || new Date().toISOString().split('T')[0],
+        placeOfPurchase,
+        issueType,
+        description,
+        complainantName: userProfile?.fullName || userProfile?.displayName || "Anonymous Consumer",
+        complainantEmail: currentUser?.email || "",
+      };
+
+      let docId = `CMP-2024-${Math.floor(1000 + Math.random() * 9000)}`;
+      if (currentUser?.uid) {
+        docId = await submitComplaint(complaintData, currentUser.uid);
+      }
+
+      const newRecord = {
+        id: docId,
+        productName,
+        purchaseDate: purchaseDate || new Date().toISOString().split('T')[0],
+        placeOfPurchase,
+        issueType,
+        description,
+        status: "Submitted & Assigned",
+        assignedAuthority: "District Legal Metrology Cell",
+        officerInCharge: "Assigned Field Inspector",
+        expectedAction: "Field officer dispatched for on-site retail test inspection within 48 hours.",
+        filedOn: new Date().toLocaleDateString()
+      };
+      setSubmittedComplaint(newRecord);
+      setUserComplaints(prev => [newRecord, ...prev]);
+    } catch (err) {
+      console.error("Failed to submit complaint:", err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleVerifyLookup = () => {
-    const found = mockProducts.find(p => p.id === verifyBarcode || p.batch.number === verifyBarcode);
-    if (found) {
-      setVerifiedProduct(found);
-    } else {
-      setVerifiedProduct(mockProducts[0]);
+  const handleVerifyLookup = async () => {
+    if (!verifyBarcode) return;
+    setVerifying(true);
+    setSearched(true);
+    try {
+      const products = await getProducts();
+      const found = products.find(p => p.id === verifyBarcode || p.batch?.number === verifyBarcode || p.gtin === verifyBarcode || p.name?.toLowerCase().includes(verifyBarcode.toLowerCase()));
+      if (found) {
+        setVerifiedProduct(found);
+      } else {
+        setVerifiedProduct(null);
+      }
+    } catch (err) {
+      console.warn("Product lookup error:", err);
+      setVerifiedProduct(null);
+    } finally {
+      setVerifying(false);
+      setReviewRating(0);
+      setReviewComment("");
+      setReviewSubmitted(false);
     }
   };
 
@@ -107,6 +181,22 @@ export default function ConsumerPortalScreen({ onNavigate }) {
               }`}
             >
               Verify Product QR
+            </button>
+            <button
+              onClick={() => setActiveTab("grievances")}
+              className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                activeTab === "grievances" ? "bg-white text-emerald-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Active Grievances
+            </button>
+            <button
+              onClick={() => setActiveTab("rights")}
+              className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                activeTab === "rights" ? "bg-white text-emerald-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Know Your Rights
             </button>
           </div>
         </div>
@@ -321,7 +411,7 @@ export default function ConsumerPortalScreen({ onNavigate }) {
               </div>
 
               {/* Verified Product Card */}
-              {verifiedProduct && (
+              {verifiedProduct ? (
                 <div className="bg-gradient-to-br from-emerald-50 to-slate-50 border border-emerald-200 rounded-2xl p-5 space-y-4">
                   <div className="flex items-start justify-between">
                     <div>
@@ -329,7 +419,7 @@ export default function ConsumerPortalScreen({ onNavigate }) {
                         Official Registered DPCR
                       </span>
                       <h3 className="font-extrabold text-base text-slate-900 mt-1">{verifiedProduct.name}</h3>
-                      <p className="text-slate-500 text-[11px]">{verifiedProduct.manufacturer.name}</p>
+                      <p className="text-slate-500 text-[11px]">{typeof verifiedProduct.manufacturer === 'object' ? verifiedProduct.manufacturer?.name : verifiedProduct.manufacturer}</p>
                     </div>
                     <StatusBadge status="Verified & Locked" size="sm" />
                   </div>
@@ -337,20 +427,20 @@ export default function ConsumerPortalScreen({ onNavigate }) {
                   <div className="grid grid-cols-2 gap-3 text-slate-700 bg-white p-3.5 rounded-xl border border-slate-200">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Maximum Retail Price</span>
-                      <span className="font-black text-emerald-700 text-sm">₹{verifiedProduct.dpcr.mrp.toFixed(2)}</span>
+                      <span className="font-black text-emerald-700 text-sm">₹{Number(verifiedProduct.dpcr?.mrp || verifiedProduct.mrp || 0).toFixed(2)}</span>
                       <span className="text-[9px] text-slate-400 block">(Incl. of all taxes)</span>
                     </div>
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Declared Net Quantity</span>
-                      <span className="font-bold text-slate-900 text-sm">{verifiedProduct.dpcr.netQuantity}</span>
+                      <span className="font-bold text-slate-900 text-sm">{verifiedProduct.dpcr?.netQuantity || verifiedProduct.netQuantity || 'N/A'}</span>
                     </div>
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">FSSAI / License</span>
-                      <span className="font-mono text-slate-700">{verifiedProduct.manufacturer.fssai}</span>
+                      <span className="font-mono text-slate-700">{verifiedProduct.manufacturer?.fssai || 'REG-LM-2024'}</span>
                     </div>
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Consumer Helpline</span>
-                      <span className="font-semibold text-slate-700">{verifiedProduct.manufacturer.helpline}</span>
+                      <span className="font-semibold text-slate-700">{verifiedProduct.manufacturer?.helpline || '1800-11-4000'}</span>
                     </div>
                   </div>
 
@@ -361,8 +451,59 @@ export default function ConsumerPortalScreen({ onNavigate }) {
                       <span>Consumer Advisory:</span>
                     </p>
                     <p>
-                      If any retailer charges more than <strong>₹{verifiedProduct.dpcr.mrp.toFixed(2)}</strong> for this product, it is a compoundable offense under Section 36 of the Legal Metrology Act.
+                      If any retailer charges more than <strong>₹{Number(verifiedProduct.dpcr?.mrp || verifiedProduct.mrp || 0).toFixed(2)}</strong> for this product, it is a compoundable offense under Section 36 of the Legal Metrology Act.
                     </p>
+                  </div>
+
+                  {/* Product Review Section */}
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mt-2">
+                    <h4 className="font-bold text-slate-900 flex items-center gap-1.5 mb-3">
+                      <Star className="w-4 h-4 text-emerald-600" />
+                      Rate & Review Product
+                    </h4>
+                    
+                    {reviewSubmitted ? (
+                      <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg text-emerald-800 flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                        <p className="text-xs font-semibold">Thank you! Your verified review has been submitted and shared with the brand owner.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Rating (1-5 Stars)</label>
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                onClick={() => setReviewRating(star)}
+                                className={`p-1 transition-transform hover:scale-110 ${reviewRating >= star ? 'text-amber-400' : 'text-slate-300'}`}
+                              >
+                                <Star className={`w-6 h-6 ${reviewRating >= star ? 'fill-amber-400' : ''}`} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Share Your Experience</label>
+                          <textarea
+                            rows={2}
+                            value={reviewComment}
+                            onChange={(e) => setReviewComment(e.target.value)}
+                            placeholder="e.g., Packaging is intact, weight seems accurate, easy to read MRP."
+                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 outline-none resize-none"
+                          />
+                        </div>
+
+                        <button
+                          onClick={() => setReviewSubmitted(true)}
+                          disabled={!reviewRating || !reviewComment}
+                          className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Submit Verified Review
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -376,7 +517,114 @@ export default function ConsumerPortalScreen({ onNavigate }) {
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
+              ) : searched && !verifying ? (
+                <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl text-center space-y-2">
+                  <AlertCircle className="w-6 h-6 text-amber-500 mx-auto" />
+                  <p className="font-bold text-slate-800 text-xs">No DPCR Record Found</p>
+                  <p className="text-slate-500 text-[11px]">No product matching "{verifyBarcode}" was found in the National Legal Metrology database.</p>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* TAB 3: ACTIVE GRIEVANCES */}
+          {activeTab === "grievances" && (
+            <div className="space-y-4 text-left">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Your Active Grievances</h2>
+                  <p className="text-slate-500 text-[11px]">Track real-time investigation status of complaints you have filed</p>
+                </div>
+                <button
+                  onClick={() => setActiveTab("file")}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-sm"
+                >
+                  + File New Grievance
+                </button>
+              </div>
+
+              {userComplaints.length > 0 ? (
+                <div className="space-y-3">
+                  {userComplaints.map((c, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-slate-50 text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded">{c.id}</span>
+                          <span className="text-slate-400">{c.filedOn || c.purchaseDate}</span>
+                        </div>
+                        <StatusBadge status={c.status || "Submitted & Assigned"} size="sm" />
+                      </div>
+                      <p className="font-extrabold text-slate-900 text-sm">{c.productName}</p>
+                      <p className="text-slate-600 font-medium">{c.issueType} — {c.placeOfPurchase}</p>
+                      {c.description && <p className="text-slate-500 italic">"{c.description}"</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
+                    <Inbox className="w-7 h-7 text-slate-400" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-700">No Grievances Filed Yet</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
+                    When you report overcharging or packaging discrepancies, your active cases will be tracked here in real-time.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab("file")}
+                    className="mt-4 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-colors shadow-sm"
+                  >
+                    File a Complaint
+                  </button>
+                </div>
               )}
+            </div>
+          )}
+
+          {/* TAB 4: KNOW YOUR RIGHTS */}
+          {activeTab === "rights" && (
+            <div className="space-y-6 text-left">
+              <div className="border-b pb-3">
+                <h2 className="text-base font-bold text-slate-900">Consumer Rights under Legal Metrology Act, 2009</h2>
+                <p className="text-slate-500 text-[11px]">Know your statutory rights when purchasing packaged commodities</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-sm">No Dual MRP</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Under Section 36, charging different MRPs for identical products depending on store location, mall, or cinema is strictly illegal.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                    <PackageCheck className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-sm">Mandatory Declarations</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Every package must clearly show: Manufacturer/Packer Name &amp; Address, Country of Origin, Net Quantity, MRP (incl. of all taxes), and PKD Date.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-violet-50 border border-violet-200 space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5 text-violet-600" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-sm">Standard Weights</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Selling commodities below declared net quantity or using uncalibrated scales attracts heavy compounding fines and prosecution.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-2">
+                <h4 className="font-bold text-slate-800">Helpline &amp; Escalation</h4>
+                <p>National Consumer Helpline (NCH): 1915 or 1800-11-4000</p>
+                <p>Complaints can also be submitted directly through this portal to dispatch jurisdictional field inspectors.</p>
+              </div>
             </div>
           )}
 

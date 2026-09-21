@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   GitFork, 
   ArrowRight, 
@@ -19,13 +19,29 @@ import {
   RotateCcw
 } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
+import { getTraceabilityByBatch } from '../../services/traceabilityService';
 import { mockTraceabilityData } from '../../data/mockTraceability';
 
 export default function TraceabilityScreen({ onNavigate }) {
   const [selectedNodeId, setSelectedNodeId] = useState("retailer");
   const [isBackwardTracing, setIsBackwardTracing] = useState(false);
+  const [traceabilityData, setTraceabilityData] = useState(mockTraceabilityData);
 
-  const selectedNode = mockTraceabilityData.nodes.find(n => n.id === selectedNodeId) || mockTraceabilityData.nodes[3];
+  useEffect(() => {
+    async function loadTraceability() {
+      try {
+        const liveData = await getTraceabilityByBatch("B12345A");
+        if (liveData) {
+          setTraceabilityData(liveData);
+        }
+      } catch (err) {
+        console.warn("Using fallback mock traceability data:", err);
+      }
+    }
+    loadTraceability();
+  }, []);
+
+  const selectedNode = (traceabilityData.nodes || mockTraceabilityData.nodes).find(n => n.id === selectedNodeId) || traceabilityData.nodes[3];
 
   const handleBackwardTrace = () => {
     setIsBackwardTracing(true);
@@ -61,14 +77,14 @@ export default function TraceabilityScreen({ onNavigate }) {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-black text-slate-900 tracking-tight">Product Traceability & Custody Graph</h1>
-            <StatusBadge status={mockTraceabilityData.currentStatus} size="sm" />
+            <StatusBadge status={traceabilityData?.currentStatus || "Registered"} size="sm" />
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
-            <span>Product: <strong className="text-slate-800">{mockTraceabilityData.productName}</strong></span>
+            <span>Product: <strong className="text-slate-800">{traceabilityData?.productName || "Fortune Sunlite Oil 1L"}</strong></span>
             <span>•</span>
-            <span>Batch Lot: <strong className="font-mono text-emerald-800 font-bold">{mockTraceabilityData.batchNo}</strong></span>
+            <span>Batch Lot: <strong className="font-mono text-emerald-800 font-bold">{traceabilityData?.batchNo || "B12345A"}</strong></span>
             <span>•</span>
-            <span>DPCR: <strong className="text-slate-700">{mockTraceabilityData.dpcrStatus}</strong></span>
+            <span>DPCR: <strong className="text-slate-700">{traceabilityData?.dpcrStatus || "Locked & Verified"}</strong></span>
           </div>
         </div>
 
@@ -109,7 +125,7 @@ export default function TraceabilityScreen({ onNavigate }) {
         </div>
         <div className="flex items-center gap-1.5 text-emerald-400 font-mono text-[11px] bg-emerald-950 px-2.5 py-1 rounded border border-emerald-800">
           <span>Active Root:</span>
-          <strong>Adani Wilmar #B12345A</strong>
+          <strong>{traceabilityData?.manufacturer || "Registered Brand"} #{traceabilityData?.batchNo || "B101"}</strong>
         </div>
       </div>
 
@@ -120,7 +136,7 @@ export default function TraceabilityScreen({ onNavigate }) {
           {/* Connecting Line */}
           <div className="absolute top-1/2 left-10 right-10 -translate-y-1/2 h-1 bg-slate-200 -z-0" />
           
-          {mockTraceabilityData.nodes.map((node, idx) => {
+          {(traceabilityData?.nodes || mockTraceabilityData.nodes).map((node, idx) => {
             const Icon = getIcon(node.icon);
             const isSelected = selectedNodeId === node.id;
             const hasViolation = node.hasViolation;
