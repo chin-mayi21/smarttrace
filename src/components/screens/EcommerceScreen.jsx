@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShoppingBag, 
   ExternalLink, 
@@ -18,25 +18,38 @@ import {
   Layers
 } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
+import { getEcommerceListings } from '../../services/ecommerceService';
 import { mockEcommerceListings } from '../../data/mockEcommerce';
 
 export default function EcommerceScreen({ onNavigate }) {
   const [activeTab, setActiveTab] = useState("single"); // "single" or "batch"
-  const [selectedListingId, setSelectedListingId] = useState("ECOM-LIST-101");
+  const [selectedListingId, setSelectedListingId] = useState(null);
   const [noticeSent, setNoticeSent] = useState(false);
   const [isBatchScanning, setIsBatchScanning] = useState(false);
-  const [batchScanDone, setBatchScanDone] = useState(true);
+  const [batchScanDone, setBatchScanDone] = useState(false);
+  const [listings, setListings] = useState([]);
 
-  const currentListing = mockEcommerceListings.find(l => l.id === selectedListingId) || mockEcommerceListings[0];
+  useEffect(() => {
+    async function loadListings() {
+      try {
+        const liveListings = await getEcommerceListings();
+        if (liveListings && liveListings.length > 0) {
+          setListings(liveListings);
+          setSelectedListingId(liveListings[0].id);
+        } else {
+          setListings([]);
+        }
+      } catch (err) {
+        console.warn("Error loading e-commerce listings:", err);
+        setListings([]);
+      }
+    }
+    loadListings();
+  }, []);
 
-  const batchFlaggedItems = [
-    { sku: "ECOM-SKU-091", title: "Fortune Sunlite Refined Sunflower Oil 1L", platform: "QuickBlink", seller: "SuperRetails", issue: "Inflated MRP (₹199 vs DPCR ₹165)", status: "Non-Compliant" },
-    { sku: "ECOM-SKU-092", title: "Organic Whole Cashews 250g Pouch", platform: "MegaCart", seller: "NutriStore", issue: "Missing Country of Origin (Rule 6(10))", status: "Non-Compliant" },
-    { sku: "ECOM-SKU-093", title: "Royal Basmati Rice 5kg Bag", platform: "ZeptoSpeed", seller: "DailyGrains", issue: "Price Gouging (₹640 vs DPCR ₹580)", status: "Non-Compliant" },
-    { sku: "ECOM-SKU-094", title: "A2 Desi Cow Ghee 1L Tin", platform: "QuickBlink", seller: "VedicOrganics", issue: "Missing Customer Care Helpline & Email", status: "Non-Compliant" },
-    { sku: "ECOM-SKU-095", title: "Roasted Salted Chana 200g", platform: "MegaCart", seller: "SnackMart", issue: "Non-standard unit 'gms' instead of 'g'", status: "Warning" },
-    { sku: "ECOM-SKU-096", title: "Detergent Liquid 2L Refill", platform: "QuickBlink", seller: "CleanHome", issue: "Dual MRP sticker detected on catalog photo", status: "Non-Compliant" }
-  ];
+  const currentListing = listings.find(l => l.id === selectedListingId) || listings[0] || null;
+
+  const batchFlaggedItems = listings.filter(l => l.status === "Non-Compliant" || l.status === "Warning");
 
   const handleIssueNotice = () => {
     setNoticeSent(true);
@@ -136,31 +149,39 @@ export default function EcommerceScreen({ onNavigate }) {
           {/* Select Sample Marketplace Listing */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5">
-              Select Marketplace Web Crawl Sample:
+              Marketplace Web Crawl Listings:
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {mockEcommerceListings.map((l) => {
-                const isSelected = currentListing.id === l.id;
-                return (
-                  <button
-                    key={l.id}
-                    onClick={() => setSelectedListingId(l.id)}
-                    className={`p-3.5 rounded-xl border text-left transition-all ${
-                      isSelected 
-                        ? "border-purple-600 bg-purple-50/70 ring-2 ring-purple-400 shadow-md" 
-                        : "border-slate-200 hover:border-slate-300 bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-bold text-xs text-slate-800">{l.platformLogo}</span>
-                      <StatusBadge status={l.status} size="sm" />
-                    </div>
-                    <p className="font-bold text-xs text-slate-900 line-clamp-1">{l.productName}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Seller: {l.sellerName}</p>
-                  </button>
-                );
-              })}
-            </div>
+            {listings.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {listings.map((l) => {
+                  const isSelected = currentListing?.id === l.id;
+                  return (
+                    <button
+                      key={l.id}
+                      onClick={() => setSelectedListingId(l.id)}
+                      className={`p-3.5 rounded-xl border text-left transition-all ${
+                        isSelected 
+                          ? "border-purple-600 bg-purple-50/70 ring-2 ring-purple-400 shadow-md" 
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold text-xs text-slate-800">{l.platformLogo || l.platform}</span>
+                        <StatusBadge status={l.status} size="sm" />
+                      </div>
+                      <p className="font-bold text-xs text-slate-900 line-clamp-1">{l.productName}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Seller: {l.sellerName}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <ShoppingBag className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                <p className="font-semibold text-slate-700">No Web Crawled Listings</p>
+                <p className="text-[11px] text-slate-400">Listings ingested from e-commerce crawlers will appear here.</p>
+              </div>
+            )}
           </div>
 
           {/* Comparison Grid: E-Commerce Listing vs Registered DPCR */}

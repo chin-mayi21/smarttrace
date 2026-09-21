@@ -11,28 +11,33 @@ import {
   RefreshCw,
   QrCode,
   ArrowRight,
-  Printer
+  Printer,
+  Loader2
 } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
+import { useAuth } from '../../contexts/AuthContext';
+import { addProduct } from '../../services/productsService';
 import { simulatePreMarketCheck } from '../../services/mockAiService';
 
 export default function ManufacturerPortalScreen({ onNavigate }) {
-  const [productName, setProductName] = useState("Fortune Sunlite Refined Sunflower Oil 1L");
+  const { currentUser, userProfile } = useAuth();
+  const [productName, setProductName] = useState("");
   const [category, setCategory] = useState("Edible Oils");
-  const [mrp, setMrp] = useState("165.00");
-  const [netQuantity, setNetQuantity] = useState("1 L (910 g)");
-  const [batchNo, setBatchNo] = useState("B12345B");
-  const [mfgDate, setMfgDate] = useState("2024-06-01");
-  const [bestBefore, setBestBefore] = useState("2024-10-30");
-  const [consumerCare, setConsumerCare] = useState("customercare@adaniwilmar.in / 1800-233-9999");
+  const [mrp, setMrp] = useState("");
+  const [netQuantity, setNetQuantity] = useState("");
+  const [batchNo, setBatchNo] = useState("");
+  const [mfgDate, setMfgDate] = useState("");
+  const [bestBefore, setBestBefore] = useState("");
+  const [consumerCare, setConsumerCare] = useState("");
   const [countryOfOrigin, setCountryOfOrigin] = useState("India");
-  const [fssaiNo, setFssaiNo] = useState("10013021000661");
+  const [fssaiNo, setFssaiNo] = useState("");
 
   // Pre-market check state
   const [isChecking, setIsChecking] = useState(false);
   const [checkProgress, setCheckProgress] = useState(null);
   const [checkResult, setCheckResult] = useState(null);
   const [dpcrRegistered, setDpcrRegistered] = useState(false);
+  const [submittingDpcr, setSubmittingDpcr] = useState(false);
 
   const handlePreMarketCheck = () => {
     setIsChecking(true);
@@ -47,9 +52,46 @@ export default function ManufacturerPortalScreen({ onNavigate }) {
     });
   };
 
-  const handleRegisterDpcr = (e) => {
+  const handleRegisterDpcr = async (e) => {
     e.preventDefault();
-    setDpcrRegistered(true);
+    setSubmittingDpcr(true);
+    try {
+      const productPayload = {
+        name: productName,
+        category,
+        brand: productName.split(" ")[0] || "Brand",
+        manufacturer: {
+          name: userProfile?.businessName || "Registered Manufacturer",
+          address: userProfile?.registeredAddress || "Registered Factory Address",
+          fssai: fssaiNo,
+          email: currentUser?.email || "manufacturer@domain.com",
+          helpline: consumerCare,
+          countryOfOrigin,
+        },
+        batch: {
+          number: batchNo,
+          mfgDate,
+          bestBefore,
+          totalUnits: 50000,
+        },
+        dpcr: {
+          mrp: parseFloat(mrp) || 0,
+          netQuantity,
+          currency: "INR",
+          dpcrStatus: "Verified & Locked",
+          registeredOn: new Date().toISOString().split("T")[0],
+        },
+      };
+
+      if (currentUser?.uid) {
+        await addProduct(productPayload, currentUser.uid);
+      }
+      setDpcrRegistered(true);
+    } catch (err) {
+      console.error("Failed to register DPCR:", err);
+    } finally {
+      setSubmittingDpcr(false);
+    }
   };
 
   return (

@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User Profiles
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Products / DPCR Registry
+    match /products/{productId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
+
+    // Inspections
+    match /inspections/{inspectionId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
+
+    // Complaints
+    match /complaints/{complaintId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
+
+    // Traceability
+    match /traceability/{batchNo} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
+
+    // E-Commerce Listings
+    match /ecommerceListings/{listingId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
+  }
+}
