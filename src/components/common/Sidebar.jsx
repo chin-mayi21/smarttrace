@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   UserCheck,
   LogOut,
-  X
+  X,
+  History
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -23,7 +24,8 @@ export default function Sidebar({
   currentRole, 
   isOpen, 
   onClose,
-  onLogout 
+  onLogout,
+  userProfile
 }) {
   const menuItems = [
     {
@@ -61,17 +63,37 @@ export default function Sidebar({
       id: "complaints",
       label: "Consumer Grievances",
       icon: MessageSquareWarning,
-      badge: "128 Active",
+      badge: "Grievances",
       badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
       forRoles: ["Enforcement Officer"]
     },
     {
+      id: "consumer-dashboard",
+      label: "Citizen Dashboard",
+      icon: LayoutDashboard,
+      badge: null,
+      forRoles: ["Consumer"]
+    },
+    {
       id: "consumer",
-      label: "Consumer Grievance Portal",
+      label: "Action Center",
       icon: UserCheck,
-      badge: "Citizen View",
-      badgeColor: "bg-emerald-100 text-emerald-800",
+      badge: null,
       forRoles: ["Consumer", "Enforcement Officer"]
+    },
+    {
+      id: "grievances",
+      label: "Active Grievances",
+      icon: History,
+      badge: null,
+      forRoles: ["Consumer"]
+    },
+    {
+      id: "rights",
+      label: "Know Your Rights",
+      icon: ShieldCheck,
+      badge: null,
+      forRoles: ["Consumer"]
     },
     {
       id: "manufacturer",
@@ -127,15 +149,15 @@ export default function Sidebar({
 
         {/* Current Active Persona Card */}
         <div className="mx-3 my-3 p-2.5 rounded-lg bg-slate-800/70 border border-slate-700/60 flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-bold text-xs shadow-inner shrink-0">
-            {currentRole === "Enforcement Officer" ? "RV" : currentRole === "Consumer" ? "AS" : "AW"}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-bold text-xs shadow-inner shrink-0 uppercase">
+            {userProfile?.displayName ? userProfile.displayName.substring(0, 2) : currentRole.substring(0, 2)}
           </div>
           <div className="overflow-hidden">
             <p className="text-xs font-bold text-white truncate">
-              {currentRole === "Enforcement Officer" ? "Rohit Verma" : currentRole === "Consumer" ? "Aarav Sharma" : "Adani Wilmar QA"}
+              {userProfile?.displayName || "Guest User"}
             </p>
             <p className="text-[10px] text-slate-400 truncate">
-              {currentRole === "Enforcement Officer" ? "Badge: LM-DEL-8921" : currentRole === "Consumer" ? "Citizen Complainant" : "Authorized Packer"}
+              {currentRole === "Enforcement Officer" ? `Badge: ${userProfile?.employeeId || 'LM-OFFICER'}` : currentRole === "Consumer" ? "Citizen Complainant" : "Authorized Business"}
             </p>
           </div>
         </div>
@@ -146,7 +168,7 @@ export default function Sidebar({
             Platform Modules
           </div>
 
-          {menuItems.map((item) => {
+          {menuItems.filter(item => item.forRoles.includes(currentRole)).map((item) => {
             const Icon = item.icon;
             const isActive = currentScreen === item.id;
             return (

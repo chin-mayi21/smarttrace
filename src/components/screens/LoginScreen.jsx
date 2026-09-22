@@ -4,6 +4,7 @@ import {
   Eye, EyeOff, CheckCircle2, XCircle, Loader2, Lock,
   Mail, Phone, MapPin, AlertCircle, ChevronDown, Hash
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -56,12 +57,12 @@ const ROLES = [
     sublabel: 'Central / State Govt. Inspector',
     Icon: ShieldCheck,
     gradient: 'from-emerald-600 to-teal-700',
-    cardBorder: 'border-emerald-700/40',
-    hoverShadow: 'hover:shadow-emerald-900/40',
-    btnCls: 'bg-emerald-600 hover:bg-emerald-500',
-    featureDot: 'bg-emerald-400',
+    cardBorder: 'border-slate-200 hover:border-emerald-500/60',
+    hoverShadow: 'hover:shadow-emerald-500/15',
+    btnCls: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    featureDot: 'bg-emerald-500',
     accentTextDark: 'text-emerald-600',
-    badgeCls: 'bg-emerald-500/20 text-emerald-300 border-emerald-600/50',
+    badgeCls: 'bg-white/20 text-white border-white/30',
     badge: 'GOVT',
     description: 'For authorized Legal Metrology Officers conducting field inspections and enforcement actions under the Legal Metrology Act, 2009.',
     features: [
@@ -70,9 +71,9 @@ const ROLES = [
       'Rule 36 Electronic Notice Generation',
       'District Enforcement Analytics & Heatmaps',
     ],
-    loginIdLabel: 'Government Employee ID',
-    loginIdPlaceholder: 'e.g. LMD-DL-2023-0142',
-    loginIdHint: 'Your unique ID issued by the Legal Metrology Department',
+    loginIdLabel: 'Official Email',
+    loginIdPlaceholder: 'officer@gov.in',
+    loginIdHint: 'Use your registered government email address',
   },
   {
     id: 'business',
@@ -80,12 +81,12 @@ const ROLES = [
     sublabel: 'Manufacturer, Importer or Packer',
     Icon: Building2,
     gradient: 'from-blue-600 to-indigo-700',
-    cardBorder: 'border-blue-700/40',
-    hoverShadow: 'hover:shadow-blue-900/40',
-    btnCls: 'bg-blue-600 hover:bg-blue-500',
-    featureDot: 'bg-blue-400',
+    cardBorder: 'border-slate-200 hover:border-blue-500/60',
+    hoverShadow: 'hover:shadow-blue-500/15',
+    btnCls: 'bg-blue-600 hover:bg-blue-700 text-white',
+    featureDot: 'bg-blue-500',
     accentTextDark: 'text-blue-600',
-    badgeCls: 'bg-blue-500/20 text-blue-300 border-blue-600/50',
+    badgeCls: 'bg-white/20 text-white border-white/30',
     badge: 'GSTIN',
     description: 'For manufacturers, packers and importers to register DPCRs, perform pre-market AI label compliance checks, and manage batch traceability.',
     features: [
@@ -94,9 +95,9 @@ const ROLES = [
       'Batch & Supply Chain Mapping',
       'Compliance Certificate Generation',
     ],
-    loginIdLabel: 'GSTIN',
-    loginIdPlaceholder: 'e.g. 24AABCA1234C1Z5',
-    loginIdHint: 'Your 15-character GST Identification Number',
+    loginIdLabel: 'Business Email',
+    loginIdPlaceholder: 'contact@company.com',
+    loginIdHint: 'Use your registered business email address',
   },
   {
     id: 'consumer',
@@ -104,12 +105,12 @@ const ROLES = [
     sublabel: 'General Public Portal',
     Icon: User,
     gradient: 'from-violet-600 to-purple-700',
-    cardBorder: 'border-violet-700/40',
-    hoverShadow: 'hover:shadow-violet-900/40',
-    btnCls: 'bg-violet-600 hover:bg-violet-500',
-    featureDot: 'bg-violet-400',
+    cardBorder: 'border-slate-200 hover:border-violet-500/60',
+    hoverShadow: 'hover:shadow-violet-500/15',
+    btnCls: 'bg-violet-600 hover:bg-violet-700 text-white',
+    featureDot: 'bg-violet-500',
     accentTextDark: 'text-violet-600',
-    badgeCls: 'bg-violet-500/20 text-violet-300 border-violet-600/50',
+    badgeCls: 'bg-white/20 text-white border-white/30',
     badge: 'PUBLIC',
     description: 'For citizens to verify product authenticity, check registered MRPs, file overcharging complaints, and track grievance status in real time.',
     features: [
@@ -123,6 +124,22 @@ const ROLES = [
     loginIdHint: '',
   },
 ];
+
+// ─── Firebase error message map ───────────────────────────────────────────────
+function getFirebaseErrorMessage(code) {
+  const map = {
+    'auth/wrong-password': 'Incorrect password. Please try again.',
+    'auth/user-not-found': 'No account found with this email address.',
+    'auth/email-already-in-use': 'This email is already registered. Please sign in.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
+    'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
+    'auth/network-request-failed': 'Network error. Please check your connection.',
+    'auth/invalid-credential': 'Invalid credentials. Please check your email and password.',
+  };
+  return map[code] || 'An error occurred. Please try again.';
+}
 
 // ─── Google Icon ──────────────────────────────────────────────────────────────
 function GoogleIcon({ size = 18 }) {
@@ -305,10 +322,10 @@ function GstinResultCard({ status, data }) {
 function OfficerLoginForm({ form, setForm }) {
   return (
     <div className="space-y-4">
-      <Field label="Government Employee ID" required value={form.identifier}
+      <Field label="Official Email" required type="email" value={form.identifier}
         onChange={e => setForm(p => ({ ...p, identifier: e.target.value }))}
-        placeholder="e.g. LMD-DL-2023-0142" icon={Hash}
-        hint="Your unique ID issued by the Legal Metrology Department" />
+        placeholder="officer@gov.in" icon={Mail}
+        hint="Use your registered government email address" />
       <PasswordField label="Password" required value={form.password}
         onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
     </div>
@@ -318,11 +335,14 @@ function OfficerLoginForm({ form, setForm }) {
 function BusinessLoginForm({ form, setForm, gstinStatus, gstinData, onVerify }) {
   return (
     <div className="space-y-4">
-      <Field label="GSTIN" required value={form.identifier}
-        onChange={e => setForm(p => ({ ...p, identifier: e.target.value.toUpperCase() }))}
+      <Field label="Business Email" required type="email" value={form.identifier}
+        onChange={e => setForm(p => ({ ...p, identifier: e.target.value }))}
+        placeholder="contact@company.com" icon={Mail}
+        hint="Use your registered business email address" />
+      <Field label="GSTIN (for verification)" value={form.gstin}
+        onChange={e => setForm(p => ({ ...p, gstin: e.target.value.toUpperCase() }))}
         placeholder="e.g. 24AABCA1234C1Z5" icon={Hash}
-        hint="Your 15-character GST Identification Number"
-        rightAddon={<GstinVerifyBtn status={gstinStatus} onClick={() => onVerify(form.identifier)} />} />
+        rightAddon={<GstinVerifyBtn status={gstinStatus} onClick={() => onVerify(form.gstin)} />} />
       <GstinResultCard status={gstinStatus} data={gstinData} />
       <PasswordField label="Password" required value={form.password}
         onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
@@ -421,31 +441,26 @@ function ConsumerSignupForm({ form, setForm, onGoogleSignup, isLoading }) {
 function RoleSelectionStage({ onSelect }) {
   const [hovered, setHovered] = useState(null);
   return (
-    <div className="min-h-screen bg-[#050d1a] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-16 left-1/4 w-80 h-80 rounded-full blur-3xl pointer-events-none bg-emerald-600/10" />
-      <div className="absolute bottom-16 right-1/4 w-80 h-80 rounded-full blur-3xl pointer-events-none bg-blue-600/10" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl pointer-events-none bg-violet-600/6" />
-      <div className="absolute inset-0 pointer-events-none opacity-20"
-        style={{ backgroundImage: 'radial-gradient(circle, #334155 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute top-16 left-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none bg-emerald-400/10" />
+      <div className="absolute bottom-16 right-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none bg-blue-400/10" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] rounded-full blur-3xl pointer-events-none bg-violet-400/8" />
+      <div className="absolute inset-0 pointer-events-none opacity-40"
+        style={{ backgroundImage: 'radial-gradient(circle, #94a3b8 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
       <div className="relative z-10 w-full max-w-5xl">
         <div className="text-center mb-10">
           <div className="flex items-center justify-center gap-3 mb-5">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-2xl shadow-emerald-900/50">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/20">
               <ShieldCheck className="w-8 h-8 text-white" />
             </div>
             <div className="text-left">
-              <div className="text-3xl font-black text-white tracking-tight leading-none">SMART<span className="text-emerald-400">TRACE</span></div>
-              <div className="text-xs font-medium text-slate-500 mt-0.5 tracking-wide">Legal Metrology Compliance Platform · Government of India</div>
+              <div className="text-3xl font-black text-slate-900 tracking-tight leading-none">SMART<span className="text-emerald-600">TRACE</span></div>
+              <div className="text-xs font-semibold text-slate-500 mt-0.5 tracking-wide">Legal Metrology Compliance Platform · Government of India</div>
             </div>
           </div>
-          <div className="flex items-center justify-center gap-2 mb-7">
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">SIH 2026</span>
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800">SIH26034</span>
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800">Code Alchemists</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Select Your Role to Continue</h1>
-          <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+          <h1 className="text-2xl font-black text-slate-900 mb-2">Select Your Role to Continue</h1>
+          <p className="text-sm font-medium text-slate-600 max-w-md mx-auto leading-relaxed">
             Each role provides a tailored compliance interface. Choose the role that best describes your function.
           </p>
         </div>
@@ -458,28 +473,32 @@ function RoleSelectionStage({ onSelect }) {
               <button key={role.id}
                 onMouseEnter={() => setHovered(role.id)} onMouseLeave={() => setHovered(null)}
                 onClick={() => onSelect(role.id)}
-                className={['bg-slate-900/70 backdrop-blur-sm border rounded-2xl overflow-hidden text-left transition-all duration-300 group focus:outline-none', role.cardBorder, isHov ? `scale-[1.025] shadow-2xl ${role.hoverShadow}` : 'scale-100 shadow-lg'].join(' ')}>
+                className={[
+                  'bg-white border rounded-2xl overflow-hidden text-left transition-all duration-300 group focus:outline-none shadow-xl shadow-slate-200/60',
+                  role.cardBorder,
+                  isHov ? `scale-[1.025] shadow-2xl ${role.hoverShadow}` : 'scale-100'
+                ].join(' ')}>
                 <div className={`bg-gradient-to-br ${role.gradient} p-5`}>
                   <div className="flex items-start justify-between mb-3">
-                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-md">
                       <Icon className="w-6 h-6 text-white" />
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${role.badgeCls}`}>{role.badge}</span>
                   </div>
                   <h2 className="text-[17px] font-black text-white">{role.label}</h2>
-                  <p className="text-xs text-white/65 mt-0.5">{role.sublabel}</p>
+                  <p className="text-xs text-white/80 mt-0.5">{role.sublabel}</p>
                 </div>
-                <div className="p-5">
-                  <p className="text-xs text-slate-400 leading-relaxed mb-4 min-h-[3.5rem]">{role.description}</p>
-                  <ul className="space-y-2 mb-5">
+                <div className="p-5 bg-white">
+                  <p className="text-xs text-slate-600 leading-relaxed mb-4 min-h-[3.5rem] font-medium">{role.description}</p>
+                  <ul className="space-y-2.5 mb-6">
                     {role.features.map((f, i) => (
                       <li key={i} className="flex items-center gap-2.5">
                         <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${role.featureDot}`} />
-                        <span className="text-xs text-slate-300">{f}</span>
+                        <span className="text-xs font-medium text-slate-700">{f}</span>
                       </li>
                     ))}
                   </ul>
-                  <div className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all ${role.btnCls}`}>
+                  <div className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md ${role.btnCls}`}>
                     <span>Select This Role</span>
                     <ArrowRight className={`w-4 h-4 transition-transform duration-200 ${isHov ? 'translate-x-1' : ''}`} />
                   </div>
@@ -489,17 +508,18 @@ function RoleSelectionStage({ onSelect }) {
           })}
         </div>
 
-        <p className="text-center text-xs text-slate-600 mt-8">
-          Ministry of Consumer Affairs, Food &amp; Public Distribution · Government of India · All prototype data is simulated for SIH 2026
+        <p className="text-center text-xs font-medium text-slate-500 mt-8">
+          Ministry of Consumer Affairs, Food &amp; Public Distribution · Government of India
         </p>
       </div>
     </div>
   );
 }
 
-// ─── Stage 2: Auth Form ───────────────────────────────────────────────────────
+// ─── Stage 2: Auth Form (Firebase-powered) ────────────────────────────────────
 
-function AuthFormStage({ roleId, onBack, onLogin }) {
+function AuthFormStage({ roleId, onBack }) {
+  const { login, loginWithGoogle, register } = useAuth();
   const role = ROLES.find(r => r.id === roleId);
   const { Icon } = role;
 
@@ -507,7 +527,7 @@ function AuthFormStage({ roleId, onBack, onLogin }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [loginForm, setLoginForm] = useState({ identifier: '', password: '' });
+  const [loginForm, setLoginForm] = useState({ identifier: '', password: '', gstin: '' });
   const [signupForm, setSignupForm] = useState({
     fullName: '', email: '', phone: '', password: '', confirmPassword: '',
     employeeId: '', designation: '', state: '', district: '',
@@ -529,20 +549,20 @@ function AuthFormStage({ roleId, onBack, onLogin }) {
   const switchMode = (m) => { setMode(m); setError(''); setSuccessMsg(''); gstin.reset(); };
 
   const validateLogin = () => {
-    if (!loginForm.identifier) { setError(`Please enter your ${role.loginIdLabel}`); return false; }
+    if (!loginForm.identifier) { setError(`Please enter your email address`); return false; }
     if (!loginForm.password) { setError('Please enter your password'); return false; }
-    if (roleId === 'business' && gstin.status !== 'verified') { setError('Please verify your GSTIN before signing in'); return false; }
     return true;
   };
 
   const validateSignup = () => {
-    if (!signupForm.fullName) { setError('Full name is required'); return false; }
+    const emailField = roleId === 'officer' ? signupForm.email : roleId === 'business' ? signupForm.email : signupForm.email;
+    if (!emailField) { setError('Email address is required'); return false; }
     if (!signupForm.phone) { setError('Mobile number is required'); return false; }
     if (!signupForm.password) { setError('Password is required'); return false; }
     if (signupForm.password.length < 8) { setError('Password must be at least 8 characters'); return false; }
     if (signupForm.password !== signupForm.confirmPassword) { setError('Passwords do not match'); return false; }
     if (roleId === 'officer') {
-      if (!signupForm.email) { setError('Official email is required'); return false; }
+      if (!signupForm.fullName) { setError('Full name is required'); return false; }
       if (!signupForm.employeeId) { setError('Government Employee ID is required'); return false; }
       if (!signupForm.designation) { setError('Designation is required'); return false; }
       if (!signupForm.state) { setError('State / UT is required'); return false; }
@@ -552,31 +572,51 @@ function AuthFormStage({ roleId, onBack, onLogin }) {
       if (gstin.status !== 'verified') { setError('Please verify your GSTIN first'); return false; }
       if (!signupForm.businessType) { setError('Business type is required'); return false; }
       if (!signupForm.authorizedPerson) { setError('Authorized person name is required'); return false; }
-      if (!signupForm.email) { setError('Business email is required'); return false; }
     }
-    if (roleId === 'consumer' && !signupForm.email) { setError('Email address is required'); return false; }
+    if (roleId === 'consumer' && !signupForm.fullName) { setError('Full name is required'); return false; }
     return true;
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     if (!validateLogin()) return;
     setIsLoading(true);
-    setTimeout(() => { setIsLoading(false); onLogin(roleId); }, 1600);
+    try {
+      await login(loginForm.identifier, loginForm.password);
+      // Auth context + App.jsx will handle redirect automatically
+    } catch (err) {
+      setError(getFirebaseErrorMessage(err.code));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     setError('');
     if (!validateSignup()) return;
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await register(signupForm, roleId);
       setSuccessMsg('Account created successfully! Redirecting to your dashboard…');
-      setTimeout(() => onLogin(roleId), 1500);
-    }, 2000);
+    } catch (err) {
+      setError(getFirebaseErrorMessage(err.code));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleGoogleAction = () => { setIsLoading(true); setTimeout(() => { setIsLoading(false); onLogin(roleId); }, 1200); };
+  const handleGoogleAction = async () => {
+    if (roleId !== 'consumer') return;
+    setIsLoading(true);
+    try {
+      await loginWithGoogle();
+    } catch (err) {
+      setError(getFirebaseErrorMessage(err.code));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleVerifyGstin = (value) => gstin.verify(value).catch(() => {});
 
   return (
@@ -613,7 +653,7 @@ function AuthFormStage({ roleId, onBack, onLogin }) {
             </div>
           </div>
           <div className="mt-8 pt-6 border-t border-white/20">
-            <p className="text-[11px] text-white/40 leading-relaxed">Ministry of Consumer Affairs · Government of India · SIH 2026 Prototype</p>
+            <p className="text-[11px] text-white/40 leading-relaxed">Ministry of Consumer Affairs · Government of India</p>
           </div>
         </div>
 
@@ -685,7 +725,7 @@ function AuthFormStage({ roleId, onBack, onLogin }) {
           )}
 
           <p className="mt-8 text-[11px] text-slate-400 text-center leading-relaxed">
-            By continuing you agree to the SMARTTRACE Terms of Service and Privacy Policy. This is a prototype system for SIH 2026 demonstration purposes.
+            By continuing you agree to the SMARTTRACE Terms of Service and Privacy Policy.
           </p>
         </div>
       </div>
@@ -695,18 +735,13 @@ function AuthFormStage({ roleId, onBack, onLogin }) {
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
-export default function LoginScreen({ onLogin }) {
+export default function LoginScreen() {
   const [stage, setStage] = useState('role-select');
   const [selectedRole, setSelectedRole] = useState(null);
 
   const handleRoleSelect = (roleId) => { setSelectedRole(roleId); setStage('auth'); };
   const handleBack = () => { setStage('role-select'); setSelectedRole(null); };
-  const handleLogin = (roleId) => {
-    const roleMap = { officer: 'Enforcement Officer', business: 'Manufacturer/Packer', consumer: 'Consumer' };
-    onLogin(roleMap[roleId]);
-  };
 
   if (stage === 'role-select') return <RoleSelectionStage onSelect={handleRoleSelect} />;
-  return <AuthFormStage roleId={selectedRole} onBack={handleBack} onLogin={handleLogin} />;
+  return <AuthFormStage roleId={selectedRole} onBack={handleBack} />;
 }
-

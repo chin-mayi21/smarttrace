@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Scan, 
   Upload, 
@@ -21,6 +21,9 @@ import {
 } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
 import { mockProducts } from '../../data/mockProducts';
+import { getProducts } from '../../services/productsService';
+import { submitInspection } from '../../services/inspectionsService';
+import { useAuth } from '../../contexts/AuthContext';
 import InspectionReportModal from '../modals/InspectionReportModal';
 import NoticeModal from '../modals/NoticeModal';
 import EvidenceDossierModal from '../modals/EvidenceDossierModal';
@@ -30,6 +33,8 @@ export default function AiInspectionScreen({
   onNavigate,
   onSelectProduct 
 }) {
+  const { currentUser, userProfile } = useAuth();
+  const [productsList, setProductsList] = useState(mockProducts);
   const [currentProduct, setCurrentProduct] = useState(
     mockProducts.find(p => p.id === selectedProductId) || mockProducts[0]
   );
@@ -41,6 +46,22 @@ export default function AiInspectionScreen({
   const [isNoticeOpen, setIsNoticeOpen] = useState(false);
   const [isDossierOpen, setIsDossierOpen] = useState(false);
   const [noticeSentNotice, setNoticeSentNotice] = useState(false);
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const liveProducts = await getProducts();
+        if (liveProducts && liveProducts.length > 0) {
+          setProductsList(liveProducts);
+          const found = liveProducts.find(p => p.id === selectedProductId) || liveProducts[0];
+          setCurrentProduct(found);
+        }
+      } catch (err) {
+        console.warn("Using default products:", err);
+      }
+    }
+    loadProducts();
+  }, [selectedProductId]);
 
   const handleProductSelect = (product) => {
     setCurrentProduct(product);
@@ -57,6 +78,19 @@ export default function AiInspectionScreen({
     }).then(() => {
       setIsAnalyzing(false);
       setAnalysisCompleted(true);
+
+      // Save real inspection record into Firestore
+      submitInspection({
+        productId: currentProduct.id,
+        product: currentProduct.name,
+        manufacturer: typeof currentProduct.manufacturer === 'object' ? currentProduct.manufacturer?.name : (currentProduct.manufacturer || 'Registered Brand'),
+        batch: currentProduct.batch?.number || currentProduct.batch || 'B101',
+        result: currentProduct.currentPhysicalScan?.overallCompliance || 'Compliant',
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        inspector: userProfile?.fullName || currentUser?.email || 'Field Officer',
+        inspectorUid: currentUser?.uid || 'anonymous',
+        violationType: currentProduct.currentPhysicalScan?.overallCompliance === 'Non-Compliant' ? 'MRP Mismatch / Overcharging' : null,
+      }).catch(err => console.error("Error persisting inspection to Firestore:", err));
     });
   };
 
@@ -89,11 +123,11 @@ export default function AiInspectionScreen({
             <StatusBadge status={currentProduct.currentPhysicalScan.overallCompliance} size="md" />
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
-            <span>Inspection ID: <strong className="font-mono text-slate-700">{currentProduct.evidence.inspectionId}</strong></span>
+            <span>Inspection ID: <strong className="font-mono text-slate-700">{currentProduct.evidence?.inspectionId || 'INSP-LIVE'}</strong></span>
             <span>•</span>
             <span>Product SKU: <strong className="text-slate-800">{currentProduct.name}</strong></span>
             <span>•</span>
-            <span>Batch: <strong className="font-mono text-emerald-800">{currentProduct.batch.number}</strong></span>
+            <span>Batch: <strong className="font-mono text-emerald-800">{typeof currentProduct.batch === 'object' ? currentProduct.batch?.number : currentProduct.batch}</strong></span>
           </div>
         </div>
 
@@ -149,10 +183,10 @@ export default function AiInspectionScreen({
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Select Sample Field Sample for AI Analysis Demo:</span>
+          <span>Select Product for AI Inspection:</span>
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {mockProducts.map((p) => {
+          {productsList.map((p) => {
             const isSelected = currentProduct.id === p.id;
             return (
               <button
