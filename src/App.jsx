@@ -31,6 +31,18 @@ function AuthLoadingScreen() {
   );
 }
 
+// ─── Role → allowed screens map ───────────────────────────────────────────────
+const ROLE_ALLOWED_SCREENS = {
+  officer: [
+    "dashboard", "inspection", "traceability", "reports",
+    "ecommerce", "complaints",
+  ],
+  business: ["manufacturer", "ecommerce", "reports"],
+  consumer: [
+    "consumer-dashboard", "consumer", "grievances", "complaints", "rights",
+  ],
+};
+
 // ─── Inner App (has access to auth context) ───────────────────────────────────
 function AppInner() {
   const { currentUser, userProfile, authLoading, logout } = useAuth();
@@ -48,12 +60,20 @@ function AppInner() {
 
   // Determine active screen — use profile role default if not set
   const defaultScreen = ROLE_SCREEN_MAP[userProfile.role] || "dashboard";
-  const activeScreen = currentScreen || defaultScreen;
+
+  // ── Role guard: reject screens the current role is not allowed to visit ──
+  const allowedScreens = ROLE_ALLOWED_SCREENS[userProfile.role] || [];
+  const requestedScreen = currentScreen || defaultScreen;
+  const activeScreen = allowedScreens.includes(requestedScreen)
+    ? requestedScreen
+    : defaultScreen;
 
   // Role label for Navbar/Sidebar
   const currentRole = ROLE_LABEL_MAP[userProfile.role] || "Enforcement Officer";
 
   const handleNavigate = (screenId) => {
+    // Silently block navigation to screens not permitted for this role
+    if (!ROLE_ALLOWED_SCREENS[userProfile.role]?.includes(screenId)) return;
     setCurrentScreen(screenId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

@@ -60,16 +60,15 @@ export function AuthProvider({ children }) {
 
   // ── Register (Email/Password) ──
   async function register(formData, roleId) {
-    const emailField =
-      roleId === "officer"
-        ? formData.email
-        : roleId === "business"
-        ? formData.email
-        : formData.email;
+    // Validate role against the known allowed set to prevent privilege escalation
+    const ALLOWED_ROLES = ["officer", "business", "consumer"];
+    if (!ALLOWED_ROLES.includes(roleId)) {
+      throw new Error(`Invalid role: "${roleId}". Registration refused.`);
+    }
 
     const { user } = await createUserWithEmailAndPassword(
       auth,
-      emailField,
+      formData.email,
       formData.password
     );
 
@@ -85,7 +84,7 @@ export function AuthProvider({ children }) {
     // Build role-specific Firestore profile
     const profileBase = {
       uid: user.uid,
-      email: emailField,
+      email: formData.email,
       phone: formData.phone || "",
       role: roleId,
       displayName,
@@ -127,15 +126,16 @@ export function AuthProvider({ children }) {
     return { user, profile };
   }
 
-  // ── Google Sign-In (Consumer only) ──
+  // ── Google Sign-In (Consumer-only self-registration) ──
+  // Existing profiles are NEVER overwritten; role can only be set on first sign-up.
   async function loginWithGoogle() {
     const provider = new GoogleAuthProvider();
     const { user } = await signInWithPopup(auth, provider);
 
-    // Check if profile already exists
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
     if (!snap.exists()) {
+      // First-time Google sign-up → always consumer, never officer/business
       const profile = {
         uid: user.uid,
         email: user.email,
@@ -148,6 +148,7 @@ export function AuthProvider({ children }) {
       await setDoc(ref, profile);
       setUserProfile(profile);
     } else {
+      // Return user — use existing Firestore role, do NOT overwrite
       setUserProfile({ id: snap.id, ...snap.data() });
     }
     return user;

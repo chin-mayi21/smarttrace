@@ -1,16 +1,26 @@
 // scripts/seedFirestore.js
+// Run: node --env-file=.env scripts/seedFirestore.js
+//   or: DOTENV_CONFIG_PATH=.env node scripts/seedFirestore.js
+// Requires Node 20.6+ for --env-file flag, otherwise install dotenv:
+//   npm i -D dotenv  then add: import "dotenv/config"; at the top.
+import "dotenv/config";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAKDNzE8mL5Vc0pywkkduaIlZhemVcOMYw",
-  authDomain: "smarttrace-67c4f.firebaseapp.com",
-  projectId: "smarttrace-67c4f",
-  storageBucket: "smarttrace-67c4f.firebasestorage.app",
-  messagingSenderId: "737993882479",
-  appId: "1:737993882479:web:b85a10c689f2b6875b469a",
-  measurementId: "G-83S586TVXL",
+  apiKey:            process.env.VITE_FIREBASE_API_KEY,
+  authDomain:        process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId:         process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket:     process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             process.env.VITE_FIREBASE_APP_ID,
+  measurementId:     process.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
+
+if (!firebaseConfig.apiKey) {
+  console.error("ERROR: VITE_FIREBASE_API_KEY not found. Run with --env-file=.env or set up dotenv.");
+  process.exit(1);
+}
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
